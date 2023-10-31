@@ -1,0 +1,405 @@
+; -------------------------------------------------------------------------------
+; We had to rewrite the either in predicates because it is not supported by PANDA
+; In order to be understandable, we have marked:
+;   - tasks with T_<name>
+;   - methods with M_<name>
+;   - actions with <name>
+; -------------------------------------------------------------------------------
+
+(define (domain domain3)
+    (:requirements :strips :typing :hierachie)
+
+    ; --- TYPES ---
+    (:types
+        person robotic_agent location carrier box supply - object
+        medicine tools food - supply
+    )
+
+    ; --- PREDICATES ---
+    (:predicates
+        (located_at_carrier ?c - carrier ?l - location)
+        (located_at_robot ?r - robotic_agent ?l - location)
+        (located_at_box ?b - box ?l - location)
+        (located_at_supply ?s - supply ?l - location)
+        (located_at_person ?p - person ?l - location)
+
+        (box_on_carrier ?b - box ?c - carrier)
+        (box_loaded ?b - box)
+        (box_is_empty ?b - box)
+        (box_with_supply ?b - box ?s - supply)
+
+        (carrier_has_no_robot ?c - carrier)
+        (robot_has_no_carrier ?r - robotic_agent)
+        (robot_carrier_attached ?r - robotic_agent ?c - carrier)
+
+        ; since a carrier can load only up to 4 boxes, we create all the predicates
+        (carrier_has_no_boxes ?c - carrier)
+        (carrier_has_one_box ?c - carrier)
+        (carrier_has_two_boxes ?c - carrier)
+        (carrier_has_three_boxes ?c - carrier)
+        (carrier_has_four_boxes ?c - carrier)
+
+        (delivered ?p - person ?s - supply)
+    )
+
+    ; --- TASKS ---
+    ;; --- non-primitive tasks ---
+    (:task T_food_delivery_satisfied
+        :parameters (?p1 - person ?p2 - person ?s1 - supply ?s2 - supply)
+        :precondition ()
+        :effect ()
+    )
+    
+    (:task T_deliver_supply
+        :parameters (?p - person ?s - supply)
+        :precondition ()
+        :effect ()
+    )
+
+    (:task T_return_to_depot
+        :parameters (?r - robotic_agent)
+        :precondition ()
+        :effect ()
+    )
+
+    (:task T_prepare_box
+        :parameters (?r - robotic_agent ?s - supply)
+        :precondition ()
+        :effect ()
+    )  
+
+    ;; --- primitive tasks ---
+    (:task T_move_robot ; applied to both carrier and non-carrier robots
+        :parameters(?r - robotic_agent ?l1 - location ?l2 - location)
+        :precondition()
+        :effect()
+    )
+
+    (:task T_attach_carrier_to_robot
+        :parameters(?r - robotic_agent ?c - carrier)
+        :precondition()
+        :effect()
+    )
+
+    (:task T_detach_carrier_to_robot
+        :parameters(?r - robotic_agent ?c - carrier)
+        :precondition()
+        :effect()
+    )
+
+    (:task T_fill_box
+        :parameters(?r - robotic_agent ?b - box ?s - supply)
+        :precondition()
+        :effect()
+    )
+
+    (:task T_load_box_on_carrier
+        :parameters(?r - robotic_agent ?b - box)
+        :precondition()
+        :effect()
+    )
+
+    (:task T_unload_box_from_carrier
+        :parameters(?r - robotic_agent ?b - box)
+        :precondition()
+        :effect()
+    )
+
+    (:task T_deliver
+        :parameters(?p - person ?s - supply)
+        :precondition()
+        :effect()
+    )
+
+
+    ; --- METHODS ---
+    ;; --- non-primitive methods ---
+    (:method M_food_delivery_satisfied_method1
+        :parameters (?p1 - person ?p2 - person ?s1 - supply ?s2 - supply)
+        :task (T_food_delivery_satisfied ?p1 ?p2 ?s1 ?s2)
+        :subtasks (and 
+            (task0 (T_deliver_supply ?p1 ?s1))
+            (task1 (T_deliver_supply ?p2 ?s2))
+        )
+        :ordering (and  
+            (task0 < task1)
+        )
+    )
+
+    (:method M_food_delivery_satisfied_method2
+        :parameters (?p1 - person ?p2 - person ?s1 - supply ?s2 - supply)
+        :task (T_food_delivery_satisfied ?p1 ?p2 ?s1 ?s2)
+        :subtasks (and 
+            (task0 (T_deliver_supply ?p1 ?s2))
+            (task1 (T_deliver_supply ?p2 ?s1))
+        )
+        :ordering (and  
+            (task0 < task1)
+        )
+    )
+    
+    (:method M_deliver_supply_with_already_carrier
+        :parameters(?r - robotic_agent ?l1 - location ?l2 - location ?b - box ?s - supply ?p - person ?c - carrier)
+        :task (T_deliver_supply ?p ?s)
+        :subtasks(and 
+            (task0 (T_prepare_box ?r ?s))
+            (task1 (T_move_robot ?r ?l1 ?l2))
+            (task2 (T_unload_box_from_carrier ?r ?b))
+            (task3 (T_deliver ?p ?s))
+        )
+        :ordering (and 
+            (task0 < task1)
+            (task1 < task2)
+            (task2 < task3)
+        )
+    )
+
+    (:method M_deliver_supply_but_first_attach_carrier
+        :parameters(?r - robotic_agent ?l1 - location ?l2 - location ?b - box ?s - supply ?p - person ?c - carrier)
+        :task (T_deliver_supply ?p ?s)
+        :subtasks(and 
+            (task0 (T_attach_carrier_to_robot ?r ?c))
+            (task1 (T_deliver_supply ?p ?s)) 
+            ; NOTE: we can call the T_deliver_supply. It has been observed experimentally that complexity increases when using but simplifying when reading the code.
+            ; Uncomment lines between dash - to reduce the complexity and unwrap the T_deliver_supply (basically we apply the same subtasks of the method above). 
+            ; Remember to comment (task1 (T_deliver_supply ?p ?s)) 
+            ; ----------------------------------------
+            ; (task1 (T_prepare_box ?r ?s))
+            ; (task2 (T_move_robot ?r ?l1 ?l2))
+            ; (task3 (T_unload_box_from_carrier ?r ?b))
+            ; (task4 (T_deliver ?p ?s))
+            ; ----------------------------------------
+        )
+        :ordering (and 
+            (task0 < task1)
+            ; ---------------
+            ; (task1 < task2)
+            ; (task2 < task3)
+            ; (task3 < task4)
+            ; ---------------
+        )
+    )
+
+    (:method M_deliver_supply_by_loading_supply_from_depot
+        :parameters(?r - robotic_agent ?l1 - location ?l2 - location ?b - box ?s - supply ?p - person ?c - carrier)
+        :task (T_deliver_supply ?p ?s)
+        :subtasks(and 
+            (task0 (T_return_to_depot ?r))
+            (task1 (T_deliver_supply ?p ?s))
+        )
+        :ordering (and 
+            (task0 < task1)
+        )
+    )
+    
+    (:method M_return_to_depot
+        :parameters(?r - robotic_agent ?l1 - location ?l2 - location ?b - box ?c - carrier ?s - supply)
+        :task (T_return_to_depot ?r)
+        :subtasks(and
+            (task0 (T_load_box_on_carrier ?r ?b))
+            (task1 (T_move_robot ?r ?l1 ?l2))
+        )
+        :ordering (and 
+            (task0 < task1)
+        )
+    )
+
+    (:method M_prepare_box
+        :parameters(?r - robotic_agent ?l - location ?b - box ?c - carrier ?s - supply)
+        :task (T_prepare_box ?r ?s)
+        :subtasks(and
+            (task0 (T_fill_box ?r ?b ?s))
+            (task1 (T_load_box_on_carrier ?r ?b))
+        )
+        :ordering (and 
+            (task0 < task1)
+        )
+    )
+
+    ;; --- primitive methods ---
+    (:method M_move_robot
+        :parameters(?r - robotic_agent ?l1 - location ?l2 - location)
+        :task (T_move_robot ?r ?l1 ?l2)
+        :subtasks (and (task0 (move_robot ?r ?l1 ?l2)))
+    )
+
+    (:method M_move_robot_with_carrier
+        :parameters(?r - robotic_agent ?c - carrier ?l1 ?l2 - location)
+        :task (T_move_robot ?r ?l1 ?l2)
+        :subtasks (and (task0 (move_robot_with_carrier ?r ?c ?l1 ?l2)))
+    )
+
+    (:method M_attach_carrier_to_robot
+        :parameters(?r - robotic_agent ?l - location ?c - carrier)
+        :task (T_attach_carrier_to_robot ?r ?c)
+        :subtasks (and (task0 (attach_carrier_to_robot ?r ?l ?c)))
+    )
+
+    (:method M_detach_carrier_to_robot
+        :parameters(?r - robotic_agent ?l - location ?c - carrier)
+        :task (T_detach_carrier_to_robot ?r ?c)
+        :subtasks (and (task0 (detach_carrier_from_robot ?r ?l ?c)))
+    )
+
+    (:method M_fill_box
+        :parameters(?r - robotic_agent ?l - location ?b - box ?s - supply)
+        :task (T_fill_box ?r ?b ?s)
+        :subtasks (and (task0 (fill_box ?r ?l ?b ?s)))
+    )
+
+    (:method M_load_box_on_carrier
+        :parameters(?c - carrier ?b - box ?l - location ?r - robotic_agent)
+        :task (T_load_box_on_carrier ?r ?b)
+        :subtasks (and (task0 (load_box_on_carrier ?c ?b ?l ?r)))
+    )
+
+    (:method M_unload_box_from_carrier
+        :parameters(?c - carrier ?b - box ?l - location ?r - robotic_agent)
+        :task (T_unload_box_from_carrier ?r ?b)
+        :subtasks (and (task0 (unload_box_from_carrier ?c ?b ?l ?r)))
+    )
+
+    (:method M_deliver
+        :parameters(?r - robotic_agent ?l - location ?p - person ?s - supply ?b - box)
+        :task (T_deliver ?p ?s)
+        :subtasks (and (task0 (deliver ?r ?l ?p ?s ?b)))
+    )
+
+
+    ; --- ACTIONS ---
+    ; move robot without carrier
+    (:action move_robot
+        :parameters (?r - robotic_agent ?from - location ?to - location)
+        :precondition (and (located_at_robot ?r ?from) (not (= ?from ?to)) (robot_has_no_carrier ?r))
+        :effect (and
+            (not (located_at_robot ?r ?from))
+            (located_at_robot ?r ?to)
+        )
+    )
+
+    ; move a robot with a carrier attached
+    (:action move_robot_with_carrier
+        :parameters (?r - robotic_agent ?c - carrier ?l1 ?l2 - location)
+        :precondition (and
+            (located_at_robot ?r ?l1)
+            (located_at_carrier ?c ?l1)
+            (robot_carrier_attached ?r ?c)
+            (not (= ?l1 ?l2))
+        )
+        :effect (and
+            (not (located_at_robot ?r ?l1))
+            (located_at_robot ?r ?l2)
+            (not (located_at_carrier ?c ?l1))
+            (located_at_carrier ?c ?l2)
+        )
+    )
+
+    ; attach a carrier to a robot
+    (:action attach_carrier_to_robot
+        :parameters (?r - robotic_agent ?l1 - location ?c - carrier)
+        :precondition (and (located_at_robot ?r ?l1) (located_at_carrier ?c ?l1) (carrier_has_no_robot ?c) (robot_has_no_carrier ?r) (carrier_has_no_boxes ?c))
+        :effect (and (not (carrier_has_no_robot ?c)) (not (robot_has_no_carrier ?r)) (robot_carrier_attached ?r ?c)) 
+    )
+
+    ; detach a carrier from a robot
+    (:action detach_carrier_from_robot
+        :parameters (?r - robotic_agent ?l1 - location ?c - carrier)
+        :precondition (and (located_at_robot ?r ?l1) (robot_carrier_attached ?r ?c) (carrier_has_no_boxes ?c))
+        :effect (and (carrier_has_no_robot ?c) (robot_has_no_carrier ?r) (not (robot_carrier_attached ?r ?c)))
+    )
+
+    ; fill the box with a supply. The box is required to not be on a carrier to be filled
+    (:action fill_box
+        :parameters (?r - robotic_agent ?l1 - location ?b - box ?s - supply)
+        :precondition (and (located_at_robot ?r ?l1) (located_at_supply ?s ?l1) (box_is_empty ?b) (located_at_box ?b ?l1) (not (box_loaded ?b)))
+        :effect (and (not (located_at_supply ?s ?l1)) (box_with_supply ?b ?s) (not (box_is_empty ?b)))
+    )
+
+    ; load box on carrier
+    (:action load_box_on_carrier
+        :parameters (?c - carrier ?b - box ?l - location ?r - robotic_agent)
+        :precondition (and
+            (located_at_carrier ?c ?l)
+            (located_at_box ?b ?l)
+            (located_at_robot ?r ?l)
+            (not (box_loaded ?b))
+            (not (box_on_carrier ?b ?c))
+            (or 
+                (carrier_has_no_boxes ?c)
+                (carrier_has_one_box ?c)
+                (carrier_has_two_boxes ?c)
+                (carrier_has_three_boxes ?c)) 
+                ; if (carrier_has_four_boxes ?c) == TRUE, means we reach max of boxes to load, no more boxes can be loaded
+        )
+        :effect (and
+            (box_on_carrier ?b ?c)
+            (box_loaded ?b)
+            (not (located_at_box ?b ?l))
+            (when (carrier_has_no_boxes ?c)
+                (and
+                    (not (carrier_has_no_boxes ?c))
+                    (carrier_has_one_box ?c)))
+            (when (carrier_has_one_box ?c)
+                (and
+                    (not (carrier_has_one_box ?c))
+                    (carrier_has_two_boxes ?c)))
+            (when (carrier_has_two_boxes ?c)
+                (and
+                    (not (carrier_has_two_boxes ?c))
+                    (carrier_has_three_boxes ?c)))
+            (when (carrier_has_three_boxes ?c)
+                (and
+                    (not (carrier_has_three_boxes ?c))
+                    (carrier_has_four_boxes ?c)))
+        )
+    )
+
+    ; unload box from the carrier
+    (:action unload_box_from_carrier
+        :parameters (?c - carrier ?b - box ?l - location ?r - robotic_agent)
+        :precondition (and 
+            (located_at_carrier ?c ?l)
+            (located_at_robot ?r ?l)
+            (box_on_carrier ?b ?c)
+            (box_loaded ?b)
+        )
+        :effect (and
+            (not (box_on_carrier ?b ?c))
+            (not (box_loaded ?b))
+            (located_at_box ?b ?l)
+            (when (carrier_has_one_box ?c)
+                (and
+                    (not (carrier_has_one_box ?c))
+                    (carrier_has_no_boxes ?c)))
+            (when (carrier_has_two_boxes ?c)
+                (and
+                    (not (carrier_has_two_boxes ?c))
+                    (carrier_has_one_box ?c)))
+            (when (carrier_has_three_boxes ?c)
+                (and
+                    (not (carrier_has_three_boxes ?c))
+                    (carrier_has_two_boxes ?c)))
+            (when (carrier_has_four_boxes ?c)
+                (and
+                    (not (carrier_has_four_boxes ?c))
+                    (carrier_has_three_boxes ?c)))
+        )
+    )
+
+    ; deliver the supply to the person. The box is required to not be on a carrier to have its supply delivered
+    (:action deliver
+        :parameters (?r - robotic_agent ?l1 - location ?p - person ?s - supply ?b - box)
+        :precondition (and 
+            (located_at_robot ?r ?l1) 
+            (located_at_person ?p ?l1) 
+            (located_at_box ?b ?l1) 
+            (box_with_supply ?b ?s) 
+            (not (box_is_empty ?b)) 
+            (not (box_loaded ?b))
+        ) 
+        :effect (and 
+            (not (box_with_supply ?b ?s)) 
+            (delivered ?p ?s) 
+            (box_is_empty ?b))
+    )
+)

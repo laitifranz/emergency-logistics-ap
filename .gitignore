@@ -1,0 +1,6 @@
+**/sas_plan*
+**/*.sas
+.vscode
+build
+log
+install

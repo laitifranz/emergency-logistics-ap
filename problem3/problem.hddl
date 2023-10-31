@@ -1,0 +1,54 @@
+(define (problem problem3)
+    (:domain domain3)
+
+    ; --- OBJECTS ---
+    (:objects
+        depot location1 location2 location3 - location
+        carrier1 - carrier
+        box1 box2 box3 box4 - box
+        robot1 - robotic_agent
+        med1 - medicine
+        food1 food2 - food
+        tools1 - tools
+        per1 per2 per3 - person
+    )
+
+    ; --- GOAL ---
+    (:htn
+        :parameters()
+        :subtasks (and  
+            (task0 (T_deliver_supply per1 med1))
+            (task1 (T_deliver_supply per1 tools1))
+            (task2 (T_food_delivery_satisfied per2 per3 food1 food2))
+        )
+        ; :ordering (and  
+        ;     (task0 < task1)
+        ;     (task1 < task2)
+		; )
+    )
+
+    ; --- INITIAL STATE ---
+    (:init
+        (located_at_robot robot1 depot)
+        (located_at_person per1 location1)
+        (located_at_person per2 location2)
+        (located_at_person per3 location3)
+        (located_at_box box1 depot)
+        (located_at_box box2 depot)
+        (located_at_box box3 depot)
+        (located_at_box box4 depot)
+        (located_at_supply med1 depot)
+        (located_at_supply food1 depot)
+        (located_at_supply food2 depot)
+        (located_at_supply tools1 depot)
+        (located_at_carrier carrier1 depot)
+        (carrier_has_no_robot carrier1)
+        (robot_has_no_carrier robot1)
+        (carrier_has_no_boxes carrier1) ; assumption that the carrier is initially empty
+        (box_is_empty box1)
+        (box_is_empty box2)
+        (box_is_empty box3)
+        (box_is_empty box4)
+        ; closed world assumptions
+    )
+)
